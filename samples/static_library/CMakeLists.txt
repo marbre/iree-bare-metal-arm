@@ -160,3 +160,78 @@ target_link_libraries(sample_static_library_c
 
 add_binary(sample_static_library_c)
 add_ihex(sample_static_library_c)
+
+#-------------------------------------------------------------------------------
+# Static library sample, EmitC with inline HAL
+#-------------------------------------------------------------------------------
+
+add_executable(sample_static_library_c_inline "")
+
+set(_COMPILE_ARGS)
+list(APPEND _COMPILE_ARGS "--output-format=vm-c")
+list(APPEND _COMPILE_ARGS "--iree-hal-target-backends=llvm-cpu")
+list(APPEND _COMPILE_ARGS "--iree-llvm-target-triple=${IREE_LLVM_TARGET_TRIPLE}")
+list(APPEND _COMPILE_ARGS "--iree-llvm-target-cpu=${ARM_CPU}")
+list(APPEND _COMPILE_ARGS "--iree-llvm-target-float-abi=${IREE_LLVM_TARGET_FLOAT_ABI}")
+list(APPEND _COMPILE_ARGS "--iree-llvm-link-embedded=false")
+list(APPEND _COMPILE_ARGS "--iree-llvm-link-static")
+list(APPEND _COMPILE_ARGS "--iree-llvm-static-library-output-path=simple_mul_c_module_inline.o")
+#list(APPEND _COMPILE_ARGS "--iree-execution-model=inline-dynamic")
+list(APPEND _COMPILE_ARGS "--iree-vm-target-index-bits=32")
+list(APPEND _COMPILE_ARGS "${IREE_SOURCE_DIR}/samples/static_library/simple_mul.mlir")
+list(APPEND _COMPILE_ARGS "-o")
+list(APPEND _COMPILE_ARGS "simple_mul_emitc_inline.h")
+
+add_custom_command(
+  OUTPUT
+    ${CMAKE_CURRENT_BINARY_DIR}/simple_mul_c_module_inline.h
+    ${CMAKE_CURRENT_BINARY_DIR}/simple_mul_c_module_inline.o
+    ${CMAKE_CURRENT_BINARY_DIR}/simple_mul_emitc_inline.h
+  COMMAND ${_COMPILE_TOOL_EXECUTABLE} ${_COMPILE_ARGS}
+)
+
+add_library(simple_mul_c_module_inline
+  STATIC
+    ${CMAKE_CURRENT_BINARY_DIR}/simple_mul_c_module_inline.o)
+
+target_sources(simple_mul_c_module_inline
+  PRIVATE
+    simple_mul_c_module_inline.h
+    simple_mul_emitc_inline.h
+)
+
+target_compile_definitions(simple_mul_c_module_inline
+  PUBLIC
+    EMITC_IMPLEMENTATION
+)
+
+set_target_properties(simple_mul_c_module_inline
+  PROPERTIES
+    LINKER_LANGUAGE C
+)
+
+target_sources(sample_static_library_c_inline
+  PRIVATE
+    static_library_demo_inline.c
+    create_c_module_inline.c
+)
+
+target_include_directories(sample_static_library_c_inline
+  PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+target_link_libraries(sample_static_library_c_inline
+  PRIVATE
+    simple_mul_c_module_inline
+    iree::runtime
+    iree::hal::drivers::local_sync::sync_driver
+    iree::hal::local::loaders::static_library_loader
+    iree::vm::shims_emitc
+    firmware
+    utils
+    write
+)
+
+add_binary(sample_static_library_c_inline)
+add_ihex(sample_static_library_c_inline)
